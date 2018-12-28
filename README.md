@@ -18,12 +18,13 @@ En este repositorio de GitHub (mmartinlla/wine-cleaning), se pueden encontrar lo
 
 ## Recursos
 
-1. Subirats, L., Calvo, M. (2018). Web Scraping. Editorial UOC.
-2. Masip, D. El lenguaje Python. Editorial UOC.
-3. Lawson, R. (2015). Web Scraping with Python. Packt Publishing Ltd. Chapter 2.
-Scraping the Data.
-4.  National Geophysical Data Center / World Data Service (NGDC/WDS): Global
-Historical Tsunami Database. National Geophysical Data Center,
-NOAA. doi:10.7289/V5PN93H7 [25th October 2018]
-5. https://github.com/tteguayco/Web-scraping
-6. https://github.com/rafoelhonrado/foodPriceScraper
+1. P. Cortez, A. Cerdeira, F. Almeida, T. Matos and J. Reis. "Modeling wine preferences by data mining from physicochemical properties". In Decision Support Systems, Elsevier, 47(4):547-553, 2009.
+2. López-Roldán, P.; Fachelli, S. (2016). "Análisis de varianza". En P. López-Roldán y S.Fachelli, "Metodología de la Investigación Social Cuantitativa". Bellaterra (Cerdanyola del Vallès): Dipòsit Digital de Documents, Universitat Autònoma de Barcelona. 1ª edición. Edición digital: http://ddd.uab.cat/record/163568
+3. Rovira Escofet, C., "Contraste de hipótesis", Apuntes de la UOC, P08/75057/02308
+4. Gibergans Bàguena, J., "Contraste de dos muestras", Apuntes de la UOC, P08/75057/02309
+5. Gibergans Bàguena, J., "Regresión lineal múltiple", Apuntes de la UOC, P08/75057/02312
+6. https://cran.r-project.org/web/packages/corrplot/vignettes/corrplot-intro.html
+7. http://vivaelsoftwarelibre.com/test-de-kolmogorov-smirnov-en-r/
+8. https://github.com/Bengis/nba-gap-cleaning
+9. Ejemplo de práctica proporcionado en la asignatura, de Teguayco Gutiérrez González.
+
