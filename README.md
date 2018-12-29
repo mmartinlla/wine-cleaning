@@ -12,9 +12,9 @@ Esta práctica ha sido desarrollada de manera individual por **Marta Martin Llam
 ## Descripción de los ficheros
 
 En este repositorio de GitHub (mmartinlla/wine-cleaning), se pueden encontrar los siguientes ficheros:
-* **tsunami-scraper/pdf report/mmartinlla_PRAC1.pdf**: contiene el informe que recoge todas las respuestas a las preguntas que se nos planteaban en esta práctica.
-* **tsunami-scraper/python code/tsunami_scraper.py**: contiene el código python que se ha desarrollado para poder extraer los datos de los tsunamis desde la "NGDC/WDS Tsunami Event Database". 
-* **tsunami-scraper/csv dataset/tsunamis_dataset.csv**: contiene el conjunto de datos extraídos de la "NGDC/WDS Tsunami Event Database" en formato CSV.
+* **wine-cleaning/Code_and_Answers/mmartinlla_Practica2_wine.pdf/html/Rmd**: contiene el informe que recoge todas las respuestas a las preguntas que se nos planteaban en esta práctica, junto con el código R creado para resolver la práctica. He adjuntado el archivo en formato html y Rmd porque en el pdf no he conseguido que se mostraran las líneas enteras de código cuando estas sobrepasaban el límite del margen.
+* **wine-cleaning/Data/Original/winequality-red.csv**: contiene el conjunto de datos originales obtenidos de https://www.kaggle.com/uciml/red-wine-quality-cortez-et-al-2009/home.
+* **wine-cleaning/Data/Final/modified_wine.csv**: contiene el conjunto de datos modificados después de la práctica.
 
 ## Recursos
 
