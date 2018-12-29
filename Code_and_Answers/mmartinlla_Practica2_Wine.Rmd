@@ -1,0 +1,374 @@
+---
+title: "PRÁCTICA 2: LIMPIEZA Y VALIDACIÓN DE LOS DATOS"
+author: "Marta Martin Llambes"
+date: '`r format(Sys.Date(),"%e de %B, %Y")`'
+output:
+  html_document:
+    toc: yes
+  pdf_document:
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r load_libraries, include=FALSE}
+library(knitr)
+library(stringr)
+library(VIM)
+library(dplyr)
+library(nortest)
+library(car)
+library(corrplot)
+library(memisc)
+```
+
+#1. Descripción del dataset
+**Descripción del dataset. ¿Por qué es importante y qué pregunta/problema pretende responder?**
+
+Para la realización de esta práctica se ha decidido utilizar el dataset de kaggle "Red Wine Quality". Los datos originales se han obtenido desde el siguiente enlace: https://www.kaggle.com/uciml/red-wine-quality-cortez-et-al-2009.
+
+Los datos que se encuentran en el fichero contienen información sobre un total de 1599 vinos rojos portugueses de la marca "Vinho Verde". Varias cualidades de estos vinos fueron analizadas en un laboratorio y se adjuntaron en este dataset un total de 11 variables que representan propiedades químicas, y una variable que contiene una puntuación que le fué asignada a cada vino como resultado de ser probado por un mínimo de tres expertos.
+
+Las variables que contiene el dataset son las siguientes:
+
+- *fixed.acidity*: cantidad de ácidos no volátiles presente en el vino.
+- *volatile.acidity*: cantidad de ácido acético presente en el vino.
+- *citric.acid*: cantidad de ácido cítrico presente en el vino.
+- *residual.sugar*: cantidad de azúcar presente en el vino después de que acabe la fermentación.
+- *chlorides*: cantidad de sal presente en el vino.
+- *free.sulfur.dioxide*: cantidad de dióxido de azufre libre presente en el vino.
+- *total.sulfur.dioxide*: cantidad total de dióxido de azufre presente en el vino.
+- *density*: valor de la medida de densidad del vino.
+- *pH*: valor de la escala de pH que tiene el vino.
+- *sulphates*: cantidad de sulfatos que contiene el vino, un aditivo. 
+- *alcohol*: porcentaje de alcohol que contiene el vino.
+- *quality*: puntuación otorgada al vino por parte de catadores expertos.
+
+Los datos contenidos en este dataset son importantes porque nos permitirán estudiar qué variables químicas de las anteriores pueden ser más influyentes en la puntuación de un vino. Con esta información se podría predecir para los nuevos vinos, aproximadamente y de manera rápida, qué puntuación se les otorgaría, si serían considerados buenos vinos o no, más información objetiva para estratificar los vinos en gamas, conocer con datos adicionales (como, por ejempo, de ventas) qué propiedades químicas de los vinos se prefieren en distintas regiones del mundo, con el tiempo estudiar más profundamente qué factores externos afectan y cómo a que las variables más correlacionadas con la calidad del vino obtengan valores más óptimos, etc.
+
+En nuestro caso, en esta práctica nos interesa averiguar qué variables influyen más en la puntuación de un vino, e intentar encontrar un modelo que ayude a predecir la puntuación de un vino a partir de dichas variables. También realizaremos alguna prueba de hipótesis para comprobar que la cantidad presente de alguna de las variables más influyentes en la calidad del vino, realmente hace que un vino se encuentre en el nivel de una gama mejor o no.
+
+# 2. Integración y selección de los datos a analizar
+
+En primer lugar, procederemos con la importación de los datos del fichero winequality-red.csv mediante la función read.csv.
+
+```{r}
+#Carga de los datos del fichero csv.
+wine <- read.csv("winequality-red.csv", sep=",", na.strings = "NA")
+
+#Comprobamos que los datos se han cargado correctamente con las funciones head() y tail().
+head(wine)
+tail(wine)
+
+#Mostramos un pequeño resumen de los datos.
+summary(wine)
+```
+
+Como hemos podido comprobar, los datos se han cargado correctamente, ya que disponemos de información sobre 1599 vinos y de sus 12 variables.
+
+Podemos observar que todas las variables son propiedades químicas de los vinos, a excepción de la última ("quality") que hace referencia a la nota que se le otorga al vino. Por lo tanto, de momento nos interesa conservar todos los datos para nuestros futuros análisis, ya que queremos analizar cuáles de todas las variables son las más influyentes en la puntuación de la calidad.
+
+A continuación, comprobaremos que el tipo de dato asignado a cada variable sea el correcto.
+
+```{r}
+#Comprobación del tipo de dato de cada variable.
+sapply(wine, function(x) class(x))
+
+```
+
+Tal y como podemos observar, todas las variabes son interpretadas correctamente como tipo numérico o entero, así que no necesitaremos corregir ninguna de ellas. 
+
+# 3. Limpieza de los datos
+### 3.1. Identificación y tratamiento de ceros y valores vacíos
+**¿Los datos contienen ceros o elementos vacíos? ¿Cómo gestionarías cada uno de estos casos?**
+
+
+Vamos a comprobar si los datos contienen valores desconocidos que hayan sido catalogados como "NA" mediante la función "is.na()".
+
+```{r}
+#Recuento de valores NA para cada variable.
+sapply(wine, function(x) sum(is.na(x)))
+```
+
+Observamos que nuestros datos no contienen valores catalogados como NA. A continuación, comprobaremos si los datos contienen ceros que pudieran aparecer debido a valores desconocidos.
+
+```{r}
+#Recuento de ceros para cada variable.
+sapply(wine, function(x) sum(x == 0))
+```
+
+Solo la variable "citric.acid" contiene un total de 132 ceros. Tal y como se menciona en el artículo "Modeling wine preferences by data mining from physicochemical properties" de P. Cortez et al., las muestras de los vinos fueron testeados y examinados por una entidad de certificación oficial llamada CVRVV, así que asumiremos que no todos los vinos contienen ácido cítrico, que los valores igual a cero de la variable ácido cítrico son posibles y correctos. 
+
+Por último comprobaremos si nuestros datos contienen valores vacíos:
+
+```{r}
+#Recuento de valores vacíos para cada variable.
+sapply(wine, function(x) sum(x == ""))
+```
+
+Como hemos observado que nuestros datos no contienen valores vacíos, ni ceros, ni NA's, no tendremos que afrontar la situación donde se debería decidir como lidiar con ellos: eliminando los registros, utilizando técnicas que imputen un valor estimado aproximado (como por ejemplo, el método de los KNN), etc. 
+
+Los datos proporcionados se encuentran en un buen estado, parece que anteriormente ya han sido limpiados y preprocesados.
+
+### 3.2. Identificación y tratamiento de valores extremos
+
+A continuación, analizaremos si nuestros datos contienen valores extremos (outliers). Primero trataremos de identificarlos visualmente mediante diagramas de cajas:
+
+```{r}
+#Creamos el diagrama de cajas de las variables cuantitativas.
+boxplot(wine$fixed.acidity, wine$residual.sugar, wine$alcohol, wine$quality ,main="Box plot variables", names=c("f.a", "r.s", "alc", "quality"), col="blue")
+boxplot(wine$volatile.acidity, wine$citric.acid, wine$chlorides, wine$density, wine$pH, wine$sulphates, main="Box plot variables", names=c("v.a", "c.a", "chl", "den", "pH", "sul"), col="blue")
+boxplot(wine$free.sulfur.dioxide, wine$total.sulfur.dioxide, names=c("f.s.d","t.s.d"), main="Box plot SibSp-Parch", col="blue")
+
+```
+
+Como podemos observar en los diagramas de cajas, todas las variables contienen outliers. Analizando los datos originales, estos parecen haber sido preprocesados, no faltan valores, y tal y como se menciona en el artículo "Modeling wine preferences by data mining from physicochemical properties" de P. Cortez et al., los datos fueron generados a partir de los análisis que llevó a cabo la entidad de certificación oficial llamada CVRVV. Todo esto nos hace pensar que los valores extremos registrados no son erróneos, y decidiremos no eliminarlos ya que se podría perder información valiosa para los futuros análisis que llevaremos a cabo.
+
+# 4. Análisis de los datos
+### 4.1. Selección de los grupos de datos que se quieren analizar/comparar 
+**Planificación de los análisis a aplicar.**
+
+Primero de todo, analizaremos la variable "quality" para hacernos una idea de la cantidad de vinos que hay de cada puntuación.
+
+```{r}
+#Número de vinos de cada puntuación.
+table(wine$quality)
+```
+
+Para llevar a cabo los análisis de este apartado, crearemos una nueva variable ("classification") a partir de la variable "quality", la cual clasificará los vinos en buenos "B" (para vinos con una puntuación igual a 7 o superior), y en no buenos "NB" (para vinos con una puntuación inferior a 7). Dicha variable la utilizaremos para hacer comparaciones en los siguientes subapartados.
+
+```{r}
+#Creación de la variable "classification".
+wine$classification <- ifelse(wine$quality < 7, "NB", "B")
+#Comprobamos el tipo de la nueva varible "classification".
+class(wine$classification)
+#Corregimos el tipo de la variable "classification".
+wine$classification <- as.factor(wine$classification)
+#Comprobamos que el tipo de la variable "classification" se ha corregido.
+class(wine$classification)
+```
+
+Comprobamos que la clasificación se ha realizado correctamente:
+
+```{r}
+#Número de vinos buenos y no buenos.
+table(wine$classification)
+```
+
+Con los datos ya preparados podemos proceder a realizar los análisis estadísticos que habíamos planteado en el inicio de la práctica. 
+En primer lugar haremos una matriz de correlaciones para examinar qué variables son las más influyentes en la determinación de la puntuación de la variable "quality". 
+Con la información obtenida de la matriz de correlaciones, intentaremos crear un modelo de regresión lineal que explique y permita predecir la puntuación de los vinos en función de las variables más influyentes en dicha puntuación. 
+Ya por último, haremos una prueba de hipótesis para comprobar si los vinos buenos tienen normalmente mayor presencia de una variable química que escojamos, en comparación con los vinos clasificados como no buenos.
+
+
+### 4.2. Comprobación de la normalidad y homogeneidad de la varianza
+
+Para comprobar la normalidad o no de las variables cuantitativas de nuestra muestra se pueden llevar a cabo tests de normalidad, o se puede mirar de sacar conclusiones a partir de representaciones gráficas. Por ejemplo, si queremos hacer un análisis de manera visual sobre gráficas, podemos usar histogramas o gráficas de normalidad (Q-Q plot).
+
+A continuación, por ejemplo, generaremos las gráficas "Q-Q plot" para inspeccionar de manera visual si nuestras variables siguen una distribución normal:
+
+```{r}
+par(mfrow=c(2,2))
+for(i in 1:ncol(wine)){
+  if(is.numeric(wine[,i])){
+    qqnorm(wine[,i], main = paste("Q-Q plot for ", colnames(wine)[i]))
+    qqline(wine[,i], col="red")
+    hist(wine[,i], main=paste("Histogram for ", colnames(wine)[i]), xlab = colnames(wine)[i], freq = FALSE)
+  }
+}
+```
+
+De los resultados obtenidos vemos que la mayoría de variables no se ajustan a la línea teória de la gráfica Q-Q, las que más se acercarían quizás son "ph" y "density", pero comprobaremos mediante un test de normalidad si se puede considerar que alguna de las variables sigue una distribución normal.
+
+Como contamos con una muestra grande (n > 50), no se aconseja realizar el test de Shapiro-Wilk, y entonces nos decantaremos por usar el test de Lilliefors (prueba de Kolmogorov-Smirnov con la corrección de Lilliefors).
+
+En primer lugar debemos establecer las dos hipótesis que barajaremos:
+
+- Hipótesis nula H0: La distribución es normal.
+
+- Hipótesis alternativa H1: La distribución no es normal.
+
+A continuación, utilizaremos la función "lillie.test" del paquete "nortest" para llevar a cabo el test de Lilliefors en nuestras variables cuantitativas, considerando para la prueba un nivel de significación del 0,05:
+
+
+```{r}
+#Test Lilliefors para las variables cuantitativas.
+lillie.test(x = wine$fixed.acidity)
+lillie.test(x = wine$volatile.acidity)
+lillie.test(x = wine$citric.acid)
+lillie.test(x = wine$residual.sugar)
+lillie.test(x = wine$chlorides)
+lillie.test(x = wine$free.sulfur.dioxide)
+lillie.test(x = wine$total.sulfur.dioxide)
+lillie.test(x = wine$density)
+lillie.test(x = wine$pH)
+lillie.test(x = wine$sulphates)
+lillie.test(x = wine$alcohol)
+lillie.test(x = wine$quality)
+
+```
+
+Como el p-valor obtenido para cada test es inferior al nivel de significación de 0,05 tenemos que rechazar la hipótesis nula para todos los casos, por lo tanto ninguna variable seguiría una distribución normal. Pero por el teorema del límite central, al tener una muestra grande (n > 30), podemos aproximar que las variables de la muestra siguen una distribución normal.
+
+En la segunada parte de este subapartado debemos comprobar la homogeneidad de varianzas. Para llevar a cabo esta comprobación, consideraremos los dos grupos de datos que hemos creado en el subapartado anterior (los que agrupan los vinos en buenos y no buenos).
+
+Las hipótesis que barajamos en este caso son las siguientes:
+
+- Hipótesis nula H0: Las varianzas de los dos grupos son homogéneas.
+
+- Hipótesis alternativa H1: Las varianzas de los dos grupos son distintas.
+
+A continuación, aplicaremos el test de Levene con un nivel de significación del 0,05 para comprobar qué hipótesis aceptamos/rechazamos. Utilizaremos la función "leveneTest" del paquete "car".
+
+```{r}
+#Test de Levene para comprobar la homogeneidad de varianzas.
+leveneTest(fixed.acidity ~ classification, wine)
+leveneTest(volatile.acidity ~ classification, wine)
+leveneTest(citric.acid ~ classification, wine)
+leveneTest(residual.sugar ~ classification, wine)
+leveneTest(chlorides ~ classification, wine)
+leveneTest(free.sulfur.dioxide ~ classification, wine)
+leveneTest(total.sulfur.dioxide ~ classification, wine)
+leveneTest(density ~ classification, wine)
+leveneTest(pH ~ classification, wine)
+leveneTest(sulphates ~ classification, wine)
+leveneTest(alcohol ~ classification, wine)
+leveneTest(quality ~ classification, wine)
+
+```
+
+Analizando los resultados, en las pruebas donde la Pr(F) >= 0,05, significa que se acepta la hipótesis nula y que las varianzas de los dos grupos son homogéneas. Esto se cumple con los datos de los grupos de vinos buenos y no buenos cuando consideramos las variables citric.acid, residual.sugar, chlorides, free.sulfur.dioxide, pH, sulphates y alcohol. Para el resto de variables, las varianzas de los dos grupos de vinos no se pueden considerar homogéneas.
+
+### 4.3. Aplicación de pruebas estadísticas para comprobar grupos de datos
+**En función de los datos y el objetivo de estudio, aplicar pruebas de contraste de hipótesis, correlaciones, regresiones, etc.**
+
+#### 4.3.1. Matriz de correlación
+
+Con la función "corrplot" del paquete "corrplot" vamos a crear una representación gráfica de una matriz de correlación de todas las variables cuantitativas de nuestros datos. Los valores representados en azul corresponden a los coeficientes de correlación positivos, mientras que los valores representados en rojo corresponden a los coeficientes de correlación negativos. Los resultados nos permitirán ver qué variables influyen más/menos en otras variables, como, por ejemplo, qué variables determinan más el valor de la variable "quality".
+
+```{r}
+par(mfrow = c(1,1))
+cor.wine <- cor(wine[,1:12])
+corrplot(cor.wine, method = 'number')
+```
+
+Del resultado podemos extraer las siguientes conclusiones:
+
+- Las variables que se encuentran más correlacionadas con "quality" son por orden (aunque no presentan valores muy elevados): "alcohol", "volatile.acidity", "sulphates", "citric.acid", "total.sulfur.dioxide", "density", "chlorides", y "fixed.acidity".
+
+- La variable "fixed.acidity" se encuentra fuertemente correlacionada con "citric.acid", "density" y "pH".
+
+- La variable "total.sulfur.dioxide" se encuentra fuertemente correlacionada (como ya era de esperar) con la variable "free.sulfur.dioxide".
+
+- La variable "density", además de estar fuertemente correlacionada con "fixed.acidity", también lo está con "alcohol".
+
+- La variable "pH", además de estar fuertemente correlacionada con "fixed.acidity", también lo está con "citric.acid" y "density".
+
+
+#### 4.3.2. Modelo de regresión lineal múltiple (regresores cuantitativos)
+
+En este subapartado, vamos a intentar encontrar un modelo de regresión que explique como viene determinada la variable "quality".
+
+Para llevar a cabo la estimación de un modelo lineal por mínimos cuadrados, utilizaremos la fnción "lm()". Definiremos la variable "quality" como variable dependiente, y las otras como independientes. En primer lugar crearemos un modelo con las dos variables que en el subapartado anterior hemos visto que tenían una mayor correlación con nuestra variable dependiente: "alcohol" y "volatile.acidity". A continuación, iremos creando más modelos incorporando más variables para comprobar si el modelo se ajusta mejor a los datos.
+
+```{r}
+#Estimamos el modelo lineal por mínimos cuadrados con la función lm().
+model1 <- lm(quality ~ alcohol + volatile.acidity, data=wine)
+#Mostramos por pantalla las propiedades del modelo obtenido.
+summary(model1)
+```
+
+El modelo de regresión lineal obtenido es el siguiente:
+
+$$
+quality=3.09547+0.31381alcohol_i-1.38364volatile.acidity_i
+$$
+
+
+Como podemos observar en los resultados del modelo, el coeficiente de determinación o de correlación múltiple de este modelo tiene un valor de 0.317. Este valor nos indica que la bondad del ajuste no es muy buena, ya que el valor de este coeficiente siempre se encuentra entre 0 y 1, y cuánto mayor es, mayor es la bondad del ajuste.
+
+Vamos a añadir más variables al modelo a ver si aumenta la bondad del ajuste, y representaremos todos los resultados en una tabla con la función "mtable" del paquete "memisc":
+
+```{r}
+#Creación de modelos lineales incluyendo más variables.
+model2 <- update(model1, ~ . + sulphates)
+model3 <- update(model2, ~ . + citric.acid)
+model4 <- update(model3, ~ . + total.sulfur.dioxide)
+model5 <- update(model4, ~ . + density)
+model6 <- update(model5, ~ . + chlorides)
+model7 <- update(model6, ~ . + fixed.acidity)
+
+#Mostrar los resultados de todos los modelos en una tabla.
+mtable(model1,model2,model3,model4,model5,model6,model7)
+
+```
+
+Como resultado, observamos que añadiendo más variables al primer modelo que habíamos calculado tampoco se consigue mejorar mucho la bondad del ajuste, ya que el coeficiente de determinación o correlación prácticamente no aumenta. Parece ser que un modelo de regresión lineal no es la mejor opción para explicar los datos de nuestro dataset, por lo tanto, si lo usáramos para predecir el valor de la variable "quality" de nuevos vinos, nos daría un resultado muy poco preciso.
+
+#### 4.3.3. Contraste de hipótesis
+
+En este subapartado vamos a comparar dos muestras: vinos buenos vs. vinos no buenos. Nos vamos a plantear como objetivo resolver la siguiente pregunta: ¿Podemos afirmar que el contenido de alcohol de los vinos no buenos ("NB") es inferior al de los vinos buenos ("B")?
+
+Para este contraste de hipótesis vamos a considerar como hipótesis nula que la media del contenido de alcohol de ambos vinos es igual, y como hipótesis alternativa que la media del contenido de alcohol de los vinos no buenos es inferior a la de los buenos:
+
+$$
+H_0: \mu_{NB}=\mu_{B}  \\   H_1: \mu_{NB}<\mu_{B}
+$$
+
+Para llevar a cabo este contraste, asumiremos un nivel de significación del 0,05, que se trata de dos muestras independientes, que tienen distribución normal (por el teorema del límite central), y que se trata de un caso de varianzas poblacionales desconocidas iguales. Aplicaremos un contraste unilateral mediante la función "t.test":
+
+```{r}
+#Prueba de hipótesis unilateral.
+t.test( wine[wine$classification=="B",]$alcohol, wine[wine$classification=="NB",]$alcohol, alternative="greater", var.equal=TRUE)
+
+```
+
+Como el p-valor obtenido es menor que el nivel de significación (0,05) rechazamos la hipótesis nula y aceptamos la hipótesis alternativa, según la cual la media de alcohol de los vinos no buenos ("NB") es inferior a la media de alcohol de los vinos buenos ("B").
+
+# 5. Representación de los resultados a partir de tablas y gráficas
+
+Aparte de la representación gráfica de la matriz de correlaciones, y de la tabla de resultados de los modelos de regresión lineal adjuntados en el punto número 4 de esta práctica, para acabar incluiremos un último diagrama. Se trata de los diagramas de cajas de las dos variables más influyentes en la puntuación de la calidad del vino. Estos diagramas separan los rangos de valores que presentan los vinos buenos y no buenos en cuanto a "alcohol" y "volatile.acidity".
+
+```{r}
+#Diagramas de caja de los valores de "alcohol" por tipo de vino.
+boxplot(wine$alcohol~wine$classification, main="Boxplot de alcohol por tipo de vino",ylab="alcohol", xlab="wine classification", las=1, cex.axis=0.75)
+#Diagramas de caja de los valores de "volatile.acidity" por tipo de vino.
+boxplot(wine$volatile.acidity~wine$classification, main="Boxplot de volatile.acidity por tipo de vino",ylab="volatile.acidity", xlab="wine classification", las=1, cex.axis=0.75)
+```
+
+En los diagramas se puede observar claramente como la media de alcohol en vinos buenos es superior a la de los vino no buenos (salvo en pocas ocasiones), y como la media de acidez volátil de los vinos buenos suele ser inferior a la de los vinos no buenos.
+
+# 6. Resolución del problema
+**A partir de los resultados obtenidos, ¿cuáles son las conclusiones? ¿Los resultados permiten responder al problema?**
+
+Como conclusión, hemos aprendido que las variables que tienen mayor influencia positiva en la puntuación de la calidad del vino, por orden, son: "alcohol", "sulphates", "citric.acid", y "fixed.acidity". Por otro lado, las variables que tienen una mayor influencia negativa en la puntuación de la calidad del vino, por orden, son: "volatile.acidity", "total.sulfur.dioxide", "density", y "chlorides". Por lo tanto, los vinos con mayor cantidad de alcohol y menor cantidad de acidez volátil suelen ser clasificados como vinos buenos.
+
+En cuanto a los resultados de los modelos de regresión lineal, no podemos aceptar ningún modelo como válido ya que la bondad de los ajustes no era muy buena, y se producirían resultados muy poco precisos si utilizaramos dichos modelos para classificar nuevos vinos en buenos y no buenos. Se deberían de usar otras técnicas para tratar de encontrar un modelo más preciso.
+
+# 7. Código
+**Hay que adjuntar el código, preferiblemente en R, con el que se ha realizado la limpieza, análisis y representación de los datos. Si lo preferís, también podéis trabajar en Python.**
+
+El código R y las respuestas a las preguntas de la práctica se entregaran en un único archivo en versión pdf, html y Rmd. Dichos ficheros se pueden encontrar en https://github.com/mmartinlla/wine-cleaning/tree/master/Code_and_Answers.
+
+El dataset modificado lo generaremos de la siguiente manera:
+
+```{r}
+#Generamos el nuevo archivo csv.
+write.csv(wine, file = "../data/modified_wine.csv", row.names=F)
+```
+Dicho dataset se puede encontrar en el siguiente enlace: https://github.com/mmartinlla/wine-cleaning/tree/master/Data/Final.
+
+# 8. Referencias
+
+- P. Cortez, A. Cerdeira, F. Almeida, T. Matos and J. Reis. "Modeling wine preferences by data mining from physicochemical properties". In Decision Support Systems, Elsevier, 47(4):547-553, 2009.
+- López-Roldán, P.; Fachelli, S. (2016). "Análisis de varianza". En P. López-Roldán y S.Fachelli, "Metodología de la Investigación Social Cuantitativa". Bellaterra (Cerdanyola del Vallès): Dipòsit Digital de Documents, Universitat Autònoma de Barcelona. 1ª edición. Edición digital: http://ddd.uab.cat/record/163568
+- Rovira Escofet, C., "Contraste de hipótesis", Apuntes de la UOC, P08/75057/02308
+- Gibergans Bàguena, J., "Contraste de dos muestras", Apuntes de la UOC, P08/75057/02309
+- Gibergans Bàguena, J., "Regresión lineal múltiple", Apuntes de la UOC, P08/75057/02312
+- https://cran.r-project.org/web/packages/corrplot/vignettes/corrplot-intro.html
+- http://vivaelsoftwarelibre.com/test-de-kolmogorov-smirnov-en-r/
+- https://github.com/Bengis/nba-gap-cleaning
+- Ejemplo de práctica proporcionado en la asignatura, de Teguayco Gutiérrez González.
